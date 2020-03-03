@@ -1,0 +1,190 @@
+---
+title: "F_HW"
+author: "Sheilja Gandhi"
+date: "9/19/2019"
+output: html_document
+---
+
+```{r}
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(ggthemes)
+library(gganimate)
+library(plotly)
+```
+
+
+```{r}
+movies = read.csv('movie_metadata.csv')
+```
+
+```{r}
+head(movies)
+```
+
+```{r}
+movies <- movies %>% drop_na
+```
+
+```{r}
+print(movies)
+```
+
+```{r}
+genres_df <- movies %>%
+  separate_rows(genres, sep = "\\|") %>%
+  group_by(genres, movie_title, director_name, content_rating, imdb_score,country, title_year) %>%
+  summarise(number = n()) %>%
+  arrange(desc(number))
+
+genres_df
+
+```
+
+
+```{r}
+ggplot(genres_df, aes(x= genres , y= imdb_score, color = genres)) + 
+  geom_violin() +
+  geom_jitter(alpha=.05) +
+  theme(legend.position="None", axis.text.x = element_text(angle=90,vjust=0.6)) 
+
+```
+
+```{r}
+colnames(movies)
+```
+
+```{r}
+length(unique(movies$director_name))
+```
+
+```{r}
+d = movies %>%filter(!(is.na(movies$director_name)| movies$director_name=="")) %>% group_by(director_name) %>% summarise(count=n()) %>% arrange(desc(count)) %>% top_n(20) %>% ggplot(aes(director_name,count,fill=director_name))+
+  geom_bar(stat="identity")+
+  theme(legend.position="None",axis.text.x = element_text(angle=90,vjust=0.3))+
+  labs(x="Director Name",y="Count")+
+  ggtitle("Director With Maximum Titles")
+```
+
+```{r}
+ggplotly(d)
+```
+
+```{r}
+ggplot(movies, aes(title_year)) +
+  geom_bar() +
+  labs(x = "Year movie was released", y = "Movie Count", title = "Histogram of Movie released") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+ggplot(data = movies, aes(x = title_year, y =duration, color = content_rating)) + 
+  geom_point()+
+  theme_bw()
+```
+
+```{r}
+length(unique(movies$genres))
+```
+
+```{r}
+# Top 10 countries by average profit per country
+
+movies %>%
+  group_by(country) %>%
+  summarise(num = n_distinct(movie_title),
+            average_profit = mean((gross - budget),na.rm="true")) %>%
+  arrange(-average_profit) %>%
+  head(10) %>%
+  ggplot(aes(reorder(country,average_profit),average_profit,fill=country))+
+  #ggplot(aes(reorder(country,-num),num),fill=country)+
+  geom_bar(stat = "identity")+
+  theme(axis.text.x = element_text(angle=90),plot.title=element_text(color="Black",face="bold"),legend.position="none")+
+  scale_y_continuous(labels=scales::comma)+
+  xlab("")+ylab("Average Profit per Movie in USD")+
+  ggtitle("Top countries by average profit per film")
+```
+
+```{r}
+AvgScoresByYear<- aggregate(imdb_score~title_year,data=movies,FUN=mean)
+ggplot(AvgScoresByYear,aes(y=imdb_score,x=title_year,color=imdb_score)) + 
+  geom_line()+
+  scale_color_gradient(low = "red",high = "blue") +
+  labs(x="Title Year",y="IMDB score",title="Average scores by year") + 
+  geom_smooth(method = "lm")+
+  theme_bw()
+```
+
+```{r}
+AvgRatingbyCR<- aggregate(imdb_score~content_rating,data=movies,FUN=mean)
+ggplot(AvgRatingbyCR,aes(y=imdb_score,x=content_rating,color=imdb_score,label=imdb_score)) + 
+  geom_point()+scale_color_gradient(low = "blue",high = "pink") +
+  labs(x="Content rating",y="IMDB score",title="Average scores by content rating") + 
+  theme(axis.text.x=element_text(angle = 90, hjust = 0)) + 
+  geom_text(aes(label=round(imdb_score,2)),size=3,hjust=-0.15, vjust=0.25)
+
+```
+
+
+```{r}
+#Top 10 highest grossing movies
+
+movies %>% drop_na(movie_title)%>%
+arrange(desc(gross)) %>% 
+head(10) %>%  
+ggplot(aes(reorder(movie_title,gross),gross,fill=movie_title))+
+geom_bar(stat="identity")+
+theme(axis.text.x = element_text(angle=90),plot.title=element_text(color="Black",face="bold"),legend.position="none")+
+scale_y_continuous(labels=scales::comma)+
+labs(x="",y="Total Gross in USD",title="Top 10 highest grossing movies")
+```
+
+
+```{r}
+general_table = movies %>% group_by(director_name) %>% 
+summarise(mean_imdb = mean(imdb_score, na.rm=T), 
+          total_movies = n(), 
+          standard_dev = sd(imdb_score), 
+          lower_bound = mean_imdb- 2* standard_dev/sqrt(total_movies), 
+          upper_bound = mean_imdb+ 2* standard_dev/sqrt(total_movies)) %>% 
+arrange(desc(mean_imdb))
+
+total_movies_mean = mean(general_table$total_movies)
+
+director_final = general_table %>%  na.omit()
+director_final = director_final%>% slice(1:30)
+
+director_final$director_name = factor(director_final$director_name, levels= director_final$director_name[order(director_final$mean_imdb)])
+
+ggplot(director_final, aes(x = mean_imdb , xmin = lower_bound, xmax = upper_bound, y = director_name)) + geom_point() + geom_segment( aes(x = lower_bound, xend = upper_bound, y = director_name, yend=director_name)) + theme(axis.text=element_text(size=8)) + xlab("Mean IMDB Rating") + ylab("Director") + ggtitle("Best Directors by Movie Rating") + theme_bw() 
+
+```
+
+```{r}
+
+movies %>%
+  group_by(country) %>%
+  summarise(num = n_distinct(movie_title),
+            average_profit = mean((gross - budget),na.rm="true")) %>%
+  arrange(-average_profit) %>%
+  head(10) %>%
+  ggplot(aes(reorder(country,average_profit),average_profit,fill=country))+
+  #ggplot(aes(reorder(country,-num),num),fill=country)+
+  geom_bar(stat = "identity")+
+  theme(axis.text.x = element_text(angle=90),plot.title=element_text(color="Black",face="bold"),legend.position="none")+
+  scale_y_continuous(labels=scales::comma)+
+  xlab("")+ylab("Average Profit per Movie in USD")+
+  ggtitle("Top countries by average profit per film")
+
+
+```
+
+
+```{r}
+
+
+
+
+
+```

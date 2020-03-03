@@ -1,0 +1,75 @@
+---
+title: "FB_9/19"
+author: "Sheilja Gandhi"
+date: "9/19/2019"
+output: html_document
+---
+
+```{r}
+library(ggplot2)
+library(dplyr)
+```
+
+```{r}
+fb_data = readr::read_csv('FB.csv')
+```
+
+```{r}
+head(fb_data)
+```
+
+```{r}
+fb_data2 <- fb_data %>%
+  rename(AdjClose = `Adj Close`) %>% 
+  arrange(Date) %>%
+  mutate(stkret = 100 * (
+    AdjClose - lag(AdjClose))/lag(AdjClose))
+
+```
+
+```{r}
+fb_data2 %>%
+  select(Date, AdjClose, stkret) %>%
+  head()
+```
+
+```{r warning = FALSE}
+fb_plot <- ggplot(fb_data2 , aes(Date , stkret)) +
+  geom_line() +
+  theme_minimal() + 
+  scale_x_date(date_breaks = "1 month",
+               date_labels = "%b-%y")
+
+print(fb_plot)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
